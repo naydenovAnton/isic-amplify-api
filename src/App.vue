@@ -14,8 +14,6 @@ import Todos from './components/Todos.vue'
       <template v-slot="{ signOut }">
 
         Е за съжаление тука още нищо няма!!<br /><br /><br />
-
-
         <button @click="signOut">Sign Out</button>
       </template>
     </authenticator>
