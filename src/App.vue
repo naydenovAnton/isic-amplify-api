@@ -13,7 +13,7 @@ import Todos from './components/Todos.vue'
     <authenticator>
       <template v-slot="{ signOut }">
 
-        Е за съжаление тука още нищо няма!!!<br /><br /><br />
+        Е за съжаление тука още нищо няма!!<br /><br /><br />
 
 
         <button @click="signOut">Sign Out</button>
