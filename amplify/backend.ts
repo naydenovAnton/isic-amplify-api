@@ -1,26 +1,52 @@
-// This is the correct approach for Amplify Gen 2
-// File: amplify/backend.ts
-
-import { defineBackend } from '@aws-amplify/backend';
+import { defineBackend, defineFunction } from '@aws-amplify/backend';
+import { Stack } from 'aws-cdk-lib';
+import { LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
 import { data } from './data/resource';
 
-// Import your Lambda functions
-import { handler as readCards } from './functions/cards/read/handler';
-import { handler as createCards } from './functions/cards/create/handler';
+// Lambda: /cards/list
+const readCards = defineFunction({
+    name: 'readCards',
+    entry: './functions/cards/read/handler.ts',
+});
 
-// Define your backend stack
+// Lambda: /cards/create
+const createCards = defineFunction({
+    name: 'createCards',
+    entry: './functions/cards/create/handler.ts',
+});
+
+// Define backend
 const backend = defineBackend({
     data,
-    functions: {
-        readCards,
-        createCards
-    },
-    api: {
-        rest: {
-            routes: [
-                { path: '/cards/list', method: 'GET', function: readCards },
-                { path: '/cards/create', method: 'POST', function: createCards },
-            ],
-        },
+    readCards,
+    createCards,
+});
+
+// Create API stack
+const apiStack = backend.createStack('api-stack');
+
+// Create REST API
+const myRestApi = new RestApi(apiStack, 'CardsApi', {
+    restApiName: 'CardsApi',
+    deploy: true,
+    deployOptions: {
+        stageName: 'dev',
     },
 });
+
+// Create Lambda integrations
+const readCardsIntegration = new LambdaIntegration(backend.readCards.resources.lambda);
+const createCardsIntegration = new LambdaIntegration(backend.createCards.resources.lambda);
+
+// Create /cards resource
+const cardsResource = myRestApi.root.addResource('cards');
+
+// Create /cards/list endpoint
+const listResource = cardsResource.addResource('list');
+listResource.addMethod('GET', readCardsIntegration);
+
+// Create /cards/create endpoint
+const createResource = cardsResource.addResource('create');
+createResource.addMethod('POST', createCardsIntegration);
+
+export { backend };

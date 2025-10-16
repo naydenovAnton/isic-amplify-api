@@ -1,6 +1,8 @@
-import { defineFunction } from '@aws-amplify/backend';
+import { APIGatewayProxyHandler } from 'aws-lambda';
 
-export const handler = defineFunction({
-    name: 'create-cards',
-    entry: './handler-impl.ts',
-});
+export const handler: APIGatewayProxyHandler = async () => {
+    return {
+        statusCode: 200,
+        body: JSON.stringify({ message: 'Card created successfully', success: true }),
+    };
+};
