@@ -1,36 +1,40 @@
 import { defineBackend, defineFunction } from '@aws-amplify/backend';
 import { Stack } from 'aws-cdk-lib';
-import { LambdaIntegration, RestApi } from 'aws-cdk-lib/aws-apigateway';
+import { LambdaIntegration, RestApi, Cors } from 'aws-cdk-lib/aws-apigateway';
 import { data } from './data/resource';
 
-// Lambda: /cards/list
+// Lambda functions for REST API (external users)
 const readCards = defineFunction({
     name: 'readCards',
     entry: './functions/cards/read/handler.ts',
 });
 
-// Lambda: /cards/create
 const createCards = defineFunction({
     name: 'createCards',
     entry: './functions/cards/create/handler.ts',
 });
 
-// Define backend
+// Define backend with GraphQL data (for admin)
 const backend = defineBackend({
     data,
     readCards,
     createCards,
 });
 
-// Create API stack
-const apiStack = backend.createStack('api-stack');
+// Create API stack for REST API (external users)
+const apiStack = backend.createStack('rest-api-stack');
 
 // Create REST API
-const myRestApi = new RestApi(apiStack, 'CardsApi', {
-    restApiName: 'CardsApi',
+const restApi = new RestApi(apiStack, 'ExternalCardsApi', {
+    restApiName: 'ExternalCardsApi',
+    description: 'REST API for external users',
     deploy: true,
     deployOptions: {
-        stageName: 'dev',
+        stageName: 'api',
+    },
+    defaultCorsPreflightOptions: {
+        allowOrigins: Cors.ALL_ORIGINS,
+        allowMethods: Cors.ALL_METHODS,
     },
 });
 
@@ -39,14 +43,24 @@ const readCardsIntegration = new LambdaIntegration(backend.readCards.resources.l
 const createCardsIntegration = new LambdaIntegration(backend.createCards.resources.lambda);
 
 // Create /cards resource
-const cardsResource = myRestApi.root.addResource('cards');
+const cardsResource = restApi.root.addResource('cards');
 
-// Create /cards/list endpoint
+// Create /cards/list endpoint (GET)
 const listResource = cardsResource.addResource('list');
 listResource.addMethod('GET', readCardsIntegration);
 
-// Create /cards/create endpoint
+// Create /cards/create endpoint (POST)
 const createResource = cardsResource.addResource('create');
 createResource.addMethod('POST', createCardsIntegration);
+
+// Add outputs
+backend.addOutput({
+    custom: {
+        API: {
+            REST_API_ENDPOINT: restApi.url,
+            REST_API_NAME: restApi.restApiName,
+        },
+    },
+});
 
 export { backend };
