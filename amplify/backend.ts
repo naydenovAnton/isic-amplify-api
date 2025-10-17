@@ -21,12 +21,12 @@ const backend = defineBackend({
     createCards,
 });
 
-// Create API stack for REST API (external users)
-const apiStack = backend.createStack('rest-api-stack');
+// Create a new stack for REST API
+const apiStack = backend.createStack('api-stack');
 
-// Create REST API
-const restApi = new RestApi(apiStack, 'ExternalCardsApi', {
-    restApiName: 'ExternalCardsApi',
+// Create REST API Gateway
+const restApi = new RestApi(apiStack, 'CardsRestApi', {
+    restApiName: 'CardsRestApi',
     description: 'REST API for external users',
     deploy: true,
     deployOptions: {
@@ -35,12 +35,17 @@ const restApi = new RestApi(apiStack, 'ExternalCardsApi', {
     defaultCorsPreflightOptions: {
         allowOrigins: Cors.ALL_ORIGINS,
         allowMethods: Cors.ALL_METHODS,
+        allowHeaders: Cors.DEFAULT_HEADERS,
     },
 });
 
+// Get Lambda functions from backend
+const readCardsLambda = backend.readCards.resources.lambda;
+const createCardsLambda = backend.createCards.resources.lambda;
+
 // Create Lambda integrations
-const readCardsIntegration = new LambdaIntegration(backend.readCards.resources.lambda);
-const createCardsIntegration = new LambdaIntegration(backend.createCards.resources.lambda);
+const readCardsIntegration = new LambdaIntegration(readCardsLambda);
+const createCardsIntegration = new LambdaIntegration(createCardsLambda);
 
 // Create /cards resource
 const cardsResource = restApi.root.addResource('cards');
@@ -53,14 +58,5 @@ listResource.addMethod('GET', readCardsIntegration);
 const createResource = cardsResource.addResource('create');
 createResource.addMethod('POST', createCardsIntegration);
 
-// Add outputs
-backend.addOutput({
-    custom: {
-        API: {
-            REST_API_ENDPOINT: restApi.url,
-            REST_API_NAME: restApi.restApiName,
-        },
-    },
-});
-
+// Export backend
 export { backend };
