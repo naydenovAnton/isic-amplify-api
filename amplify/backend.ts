@@ -14,11 +14,17 @@ const createCards = defineFunction({
     entry: './functions/cards/create/handler.ts',
 });
 
+const readOrders = defineFunction({
+    name: 'readOrders',
+    entry: './functions/orders/read/handler.ts',
+});
+
 // Define backend with GraphQL data (for admin)
 const backend = defineBackend({
     data,
     readCards,
     createCards,
+    readOrders
 });
 
 // Create a new stack for REST API
@@ -39,24 +45,55 @@ const restApi = new RestApi(apiStack, 'CardsRestApi', {
     },
 });
 
-// Get Lambda functions from backend
-const readCardsLambda = backend.readCards.resources.lambda;
-const createCardsLambda = backend.createCards.resources.lambda;
+// Define all endpoints in one configuration array
+const endpointConfigs = [
+    {
+        path: 'cards',
+        methods: [
+            {
+                type: 'GET',
+                pathFragment: 'list',
+                functionName: 'readCards',
+                lambda: backend.readCards.resources.lambda
+            },
+            {
+                type: 'POST',
+                pathFragment: 'create',
+                functionName: 'createCards',
+                lambda: backend.createCards.resources.lambda
+            }
+        ]
+    },
+    {
+        path: 'orders',
+        methods: [
+            {
+                type: 'GET',
+                pathFragment: 'list',
+                functionName: 'readOrders',
+                lambda: backend.readOrders.resources.lambda
+            }
+        ]
+    }
+];
 
-// Create Lambda integrations
-const readCardsIntegration = new LambdaIntegration(readCardsLambda);
-const createCardsIntegration = new LambdaIntegration(createCardsLambda);
+// Create all API resources and methods dynamically
+endpointConfigs.forEach(config => {
+    const resource = restApi.root.addResource(config.path);
 
-// Create /cards resource
-const cardsResource = restApi.root.addResource('cards');
+    config.methods.forEach(method => {
+        const integration = new LambdaIntegration(method.lambda);
 
-// Create /cards/list endpoint (GET)
-const listResource = cardsResource.addResource('list');
-listResource.addMethod('GET', readCardsIntegration);
-
-// Create /cards/create endpoint (POST)
-const createResource = cardsResource.addResource('create');
-createResource.addMethod('POST', createCardsIntegration);
+        if (method.pathFragment) {
+            // For endpoints like /cards/list, /cards/create
+            const methodResource = resource.addResource(method.pathFragment);
+            methodResource.addMethod(method.type, integration);
+        } else {
+            // For direct resource methods like /cards (GET, POST, etc.)
+            resource.addMethod(method.type, integration);
+        }
+    });
+});
 
 // Export backend
 export { backend };
