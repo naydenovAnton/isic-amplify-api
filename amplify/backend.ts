@@ -2,7 +2,7 @@ import { defineBackend, defineFunction } from '@aws-amplify/backend';
 import { Stack } from 'aws-cdk-lib';
 import { LambdaIntegration, RestApi, Cors } from 'aws-cdk-lib/aws-apigateway';
 import { data } from './data/resource';
-
+import { auth } from './auth/resource';
 // Lambda functions for REST API (external users)
 const readCards = defineFunction({
     name: 'readCards',
@@ -22,6 +22,7 @@ const readOrders = defineFunction({
 // Define backend with GraphQL data (for admin)
 const backend = defineBackend({
     data,
+    auth,
     readCards,
     createCards,
     readOrders
