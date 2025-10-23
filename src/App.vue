@@ -1,20 +1,26 @@
+<!-- App.vue -->
 <script setup lang="ts">
 
-import { Authenticator } from "@aws-amplify/ui-vue";
+import {Authenticator, useAuthenticator} from '@aws-amplify/ui-vue';
+import {toRefs} from 'vue';
+
 import "@aws-amplify/ui-vue/styles.css";
 
+const {authStatus} = toRefs(useAuthenticator());
 </script>
 
 <template>
-  <main>
+  <!-- Show authenticator on top of everything if not logged in -->
 
-    <authenticator>
-      <template v-slot="{ signOut }">
+  <div v-if="authStatus === 'unauthenticated'" class="auth-wrap">
+    <authenticator></authenticator>
+  </div>
 
-        Е за съжаление тука още нищо няма!!<br /><br /><br />
-        <button @click="signOut">Sign Out</button>
-      </template>
-    </authenticator>
-  </main>
+  <!-- Once authenticated, show the normal app with navigation and routes -->
+  <div v-else-if="authStatus === 'authenticated'">
+    <nav>
+      <!-- Your navigation links here -->
+    </nav>
+    <router-view/>
+  </div>
 </template>
-

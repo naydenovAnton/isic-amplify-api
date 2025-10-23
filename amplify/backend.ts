@@ -3,29 +3,20 @@ import { Stack } from 'aws-cdk-lib';
 import { LambdaIntegration, RestApi, Cors } from 'aws-cdk-lib/aws-apigateway';
 import { data } from './data/resource';
 import { auth } from './auth/resource';
-// Lambda functions for REST API (external users)
-const readCards = defineFunction({
-    name: 'readCards',
-    entry: './functions/cards/read/handler.ts',
-});
 
-const createCards = defineFunction({
-    name: 'createCards',
-    entry: './functions/cards/create/handler.ts',
-});
 
-const readOrders = defineFunction({
-    name: 'readOrders',
-    entry: './functions/orders/read/handler.ts',
-});
+import { readCards } from './functions/cards/read/resources';
+import { getCard } from './functions/cards/get/resources';
+import {tokenAuthorizer} from "./functions/authorizers/resource";
+
 
 // Define backend with GraphQL data (for admin)
 const backend = defineBackend({
     data,
     auth,
     readCards,
-    createCards,
-    readOrders
+    getCard,
+    tokenAuthorizer
 });
 
 // Create a new stack for REST API
@@ -58,21 +49,10 @@ const endpointConfigs = [
                 lambda: backend.readCards.resources.lambda
             },
             {
-                type: 'POST',
-                pathFragment: 'create',
-                functionName: 'createCards',
-                lambda: backend.createCards.resources.lambda
-            }
-        ]
-    },
-    {
-        path: 'orders',
-        methods: [
-            {
                 type: 'GET',
-                pathFragment: 'list',
-                functionName: 'readOrders',
-                lambda: backend.readOrders.resources.lambda
+                pathFragment: '{cardId}',
+                functionName: 'getCard',
+                lambda: backend.getCard.resources.lambda
             }
         ]
     }
