@@ -20,7 +20,7 @@ export async function logAPIRequest(event: any): Promise<void> {
             return;
         }
 
-        const client = getDataClient();
+        const client = await getDataClient();
 
         await client.models.APILog.create({
             contractorId,
