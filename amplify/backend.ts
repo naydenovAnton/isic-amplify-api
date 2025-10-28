@@ -15,8 +15,8 @@ const backend = defineBackend({
     data,
     auth,
     readCards,
-    getCard,
-    tokenAuthorizer
+    tokenAuthorizer,
+    getCard
 });
 
 // Create a new stack for REST API

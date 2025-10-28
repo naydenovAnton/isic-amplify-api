@@ -1,186 +1,201 @@
-// amplify/functions/cards/get/handler.ts
 import type { APIGatewayProxyHandler } from 'aws-lambda';
-
 import { getDataClient } from '../../shared/amplifyClient';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
     try {
-        console.log('Fetching card details from database...');
+        console.log('Fetching card details...');
 
-        // Extract card ID from path parameters
+        // --- 1️⃣ Validate input
         const cardId = event.pathParameters?.cardId;
-        if (!cardId) {
-            return {
-                statusCode: 400,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': '*'
-                },
-                body: JSON.stringify({
-                    success: false,
-                    error: 'Bad Request',
-                    message: 'Card ID is required'
-                }),
-            };
-        }
+        if (!cardId) return badRequest('Card ID is required');
 
-        // Extract contractor ID from the request context - UPDATED KEY
         const contractorId = event.requestContext?.authorizer?.['x-contractor-id'];
-
-        console.log('event', event)
-
-        if (!contractorId) {
-            console.log('Authorizer context:', JSON.stringify(event.requestContext?.authorizer));
-            return {
-                statusCode: 401,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': '*'
-                },
-                body: JSON.stringify({
-                    success: false,
-                    error: 'Unauthorized',
-                    message: 'Contractor ID not found in authorizer context'
-                }),
-            };
-        }
-
-        console.log(`Fetching card ${cardId} for contractor ${contractorId}`);
+        if (!contractorId) return unauthorized('Contractor ID not found in authorizer context');
 
         const client = getDataClient();
+        console.log(`Card ${cardId} for contractor ${contractorId}`);
 
-        // Step 1: Check if this card is assigned to the contractor
+        // --- 2️⃣ Verify contractor ↔ card assignment
         const { data: contractorCards, errors: contractorCardErrors } = await client.models.ContractorCard.list({
-            filter: {
-                contractorId: { eq: contractorId },
-                cardId: { eq: cardId }
-            }
+            filter: { contractorId: { eq: contractorId }, cardId: { eq: cardId } },
         });
+        if (contractorCardErrors?.length) throw new Error(contractorCardErrors[0].message);
+        if (!contractorCards?.length) return notFound('Card not assigned to this partner');
+        const contractorCard = contractorCards[0];
+        const discountPercent = contractorCard.discountPercent ?? 0;
 
-        if (contractorCardErrors) {
-            console.error('Errors checking card assignment:', contractorCardErrors);
-            throw new Error(contractorCardErrors[0].message);
-        }
-
-        if (!contractorCards || contractorCards.length === 0) {
-            return {
-                statusCode: 404,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': '*'
-                },
-                body: JSON.stringify({
-                    success: false,
-                    error: 'Not Found',
-                    message: 'Card not found or not assigned to this partner'
-                }),
-            };
-        }
-
-        // Step 2: Get the card details
+        // --- 3️⃣ Get card
         const { data: cards, errors: cardErrors } = await client.models.Card.list({
-            filter: {
-                id: { eq: cardId },
-                isActive: { eq: true }
-            }
+            filter: { id: { eq: cardId }, isActive: { eq: true } },
         });
-
-        if (cardErrors) {
-            console.error('Errors fetching card:', cardErrors);
-            throw new Error(cardErrors[0].message);
-        }
-
-        if (!cards || cards.length === 0) {
-            return {
-                statusCode: 404,
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Access-Control-Allow-Origin': '*',
-                    'Access-Control-Allow-Headers': '*'
-                },
-                body: JSON.stringify({
-                    success: false,
-                    error: 'Not Found',
-                    message: 'Card not found or inactive'
-                }),
-            };
-        }
-
+        if (cardErrors?.length) throw new Error(cardErrors[0].message);
+        if (!cards?.length) return notFound('Card not found or inactive');
         const card = cards[0];
 
-        // Step 3: Get required fields for this card
-        const { data: requiredFields, errors: fieldsErrors } = await client.models.CardRequiredField.list({
-            filter: {
-                cardId: { eq: cardId }
-            }
-        });
+        const basePrice = card.price ?? 0;
+        const discountedBase = applyDiscount(basePrice, discountPercent);
 
-        if (fieldsErrors) {
-            console.error('Errors fetching required fields:', fieldsErrors);
-            throw new Error(fieldsErrors[0].message);
+        // --- 4️⃣ Load field links
+        const { data: fieldLinks, errors: fieldLinkErrors } = await client.models.CardFieldLink.list({
+            filter: { cardId: { eq: card.id } },
+        });
+        if (fieldLinkErrors?.length) throw new Error(fieldLinkErrors[0].message);
+
+        const sortedLinks = [...fieldLinks].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+
+        const formFields: any[] = [];
+        let dynamicPrice = false;
+        const dynamicPrices: number[] = [];
+
+        for (const link of sortedLinks) {
+            const { data: field } = await client.models.CardRequiredField.get({ id: link.fieldId });
+            if (!field) continue;
+
+            const affectsPrice = link.affectsPrice ?? false;
+
+            // --- determine regex
+            const regex =
+                (field.validationRegex ?? undefined) ||
+                getDefaultRegex(String(field.fieldName ?? ''), String(field.fieldType ?? ''));
+
+            const fieldOut: any = {
+                id: field.id,
+                fieldName: field.fieldName,
+                fieldType: field.fieldType,
+                label: link.label || field.fieldName,
+                placeholder: link.placeholder || '',
+                isRequired: link.isRequired ?? true,
+                affectsPrice,
+                order: link.order ?? 0,
+                validationRegex: regex,
+            };
+
+            // --- 5️⃣ Handle select fields
+            if (field.fieldType === 'select') {
+                const { data: options } = await client.models.FieldOption.list({
+                    filter: { fieldId: { eq: field.id } },
+                });
+
+                const enrichedOptions: any[] = [];
+
+                for (const opt of options) {
+                    const optOut: any = {
+                        id: opt.id,
+                        label: opt.label,
+                        value: opt.value,
+                    };
+
+                    // Only add price if this field affects final card price
+                    if (affectsPrice) {
+                        const { data: overrides } = await client.models.CardFieldOptionLink.list({
+                            filter: {
+                                cardFieldLinkId: { eq: link.id },
+                                optionId: { eq: opt.id },
+                            },
+                        });
+
+                        const rawPrice = overrides?.[0]?.price ?? basePrice;
+                        const discounted = applyDiscount(rawPrice, discountPercent);
+                        optOut.price = discounted;
+
+                        dynamicPrices.push(discounted);
+                    }
+
+                    enrichedOptions.push(optOut);
+                }
+
+                fieldOut.options = enrichedOptions;
+                if (affectsPrice) dynamicPrice = true;
+            }
+
+            formFields.push(fieldOut);
         }
 
-        // Sort required fields by order if specified
-        const sortedFields = (requiredFields || []).sort((a, b) => {
-            const orderA = a.order || 0;
-            const orderB = b.order || 0;
-            return orderA - orderB;
-        });
+        // --- 6️⃣ Compute card price
+        let price: number | string = round2(discountedBase);
+        if (dynamicPrice && dynamicPrices.length) {
+            const min = Math.min(...dynamicPrices);
+            const max = Math.max(...dynamicPrices);
+            price = `${fmtMoney(min)}-${fmtMoney(max)}`;
+        }
 
-        // Step 4: Format response with card details and required fields
-        const contractorCard = contractorCards[0];
-        const discountPercent = contractorCard?.discountPercent || 0;
-        const originalPrice = card.price || 0;
-        const discountedPrice = originalPrice * (1 - discountPercent / 100);
-
+        // --- 7️⃣ Final response
         const formattedCard = {
             id: card.id,
             name: card.name,
             type: card.type,
-            description: card.description,
-            price: parseFloat(discountedPrice.toFixed(2)),
-            formFields: sortedFields.map(field => ({
-                fieldName: field.fieldName,
-                fieldType: field.fieldType,
-                isRequired: field.isRequired,
-                label: field.label,
-                placeholder: field.placeholder,
-                validationRegex: field.validationRegex,
-                order: field.order
-            }))
+            description: card.description ?? null,
+            dynamicPrice,
+            price,
+            formFields,
         };
 
-        console.log(`Successfully fetched card details with ${sortedFields.length} required fields`);
+        console.log(
+            `✅ Card ${card.id} fetched (${formFields.length} fields, dynamic=${dynamicPrice})`
+        );
 
-        return {
-            statusCode: 200,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': '*'
-            },
-            body: JSON.stringify({
-                success: true,
-                card: formattedCard
-            }),
-        };
+        return ok({ card: formattedCard });
     } catch (error) {
-        console.error('Error fetching card details:', error);
-        return {
-            statusCode: 500,
-            headers: {
-                'Content-Type': 'application/json',
-                'Access-Control-Allow-Origin': '*',
-                'Access-Control-Allow-Headers': '*'
-            },
-            body: JSON.stringify({
-                success: false,
-                error: 'Failed to read card details',
-                message: error instanceof Error ? error.message : 'Unknown error'
-            }),
-        };
+        console.error('❌ Error fetching card details:', error);
+        return errorResponse(error);
     }
 };
+
+// ---------- helpers ----------
+const cors = () => ({
+    'Content-Type': 'application/json',
+    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Headers': '*',
+});
+
+const ok = (body: any) => ({
+    statusCode: 200,
+    headers: cors(),
+    body: JSON.stringify({ success: true, ...body }),
+});
+const badRequest = (msg: string) => ({
+    statusCode: 400,
+    headers: cors(),
+    body: JSON.stringify({ success: false, error: 'Bad Request', message: msg }),
+});
+const unauthorized = (msg: string) => ({
+    statusCode: 401,
+    headers: cors(),
+    body: JSON.stringify({ success: false, error: 'Unauthorized', message: msg }),
+});
+const notFound = (msg: string) => ({
+    statusCode: 404,
+    headers: cors(),
+    body: JSON.stringify({ success: false, error: 'Not Found', message: msg }),
+});
+const errorResponse = (err: any) => ({
+    statusCode: 500,
+    headers: cors(),
+    body: JSON.stringify({
+        success: false,
+        error: 'Failed to read card details',
+        message: err instanceof Error ? err.message : 'Unknown error',
+    }),
+});
+
+function applyDiscount(amount: number, pct: number) {
+    const v = amount * (1 - (pct || 0) / 100);
+    return Number.isFinite(v) ? v : 0;
+}
+function round2(n: number) {
+    return Math.round((n + Number.EPSILON) * 100) / 100;
+}
+function fmtMoney(n: number) {
+    const r = round2(n);
+    return Number.isInteger(r) ? String(r) : r.toFixed(2);
+}
+
+// --- Default regex rules for frontend validation ---
+function getDefaultRegex(name: string, type: string) {
+    if (type === 'number') return '^\\d+(\\.\\d+)?$';
+    if (type === 'date') return '^\\d{4}-\\d{2}-\\d{2}$';
+    if (name.toLowerCase().includes('email')) return '^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$';
+    if (name.toLowerCase().includes('phone')) return '^\\+?[0-9\\s-]{7,15}$';
+    if (name.toLowerCase().includes('name')) return '^[A-Za-zА-Яа-я\\s\\-]{2,}$';
+    return '.*'; // allow anything by default
+}

@@ -5,6 +5,7 @@
       <h1>{{ title }}</h1>
       <nav class="navigation">
         <router-link to="/dashboard" class="nav-link">Dashboard</router-link>
+        <router-link to="/fields" class="nav-link">Fields</router-link>
         <router-link to="/cards" class="nav-link">Cards</router-link>
         <router-link to="/partners" class="nav-link">Partners</router-link>
       </nav>

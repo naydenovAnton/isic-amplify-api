@@ -7,12 +7,12 @@ const routes = [
         name: 'Auth',
         component: () => import('../screens/Auth.vue'),
     },
-    {
-        path: '/dashboard',
-        name: 'Dashboard',
-        component: () => import('../screens/Dashboard.vue'),
-        meta: { requiresAuth: true }
-    },
+    // {
+    //     path: '/dashboard',
+    //     name: 'Dashboard',
+    //     component: () => import('../screens/Dashboard.vue'),
+    //     meta: { requiresAuth: true }
+    // },
     {
         path: '/partners',
         name: 'Partners',
@@ -26,8 +26,14 @@ const routes = [
         meta: { requiresAuth: true }
     },
     {
+        path: '/fields',
+        name: 'Fields',
+        component: () => import('../screens/Fields.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
         path: '/',
-        redirect: '/dashboard'
+        redirect: '/fields'
     }
 ]
 
