@@ -15,7 +15,7 @@ export const handler = async (
         return generatePolicy('unauthorized-user', 'Deny', event.methodArn);
     }
 
-    const client = getDataClient();
+    const client = await getDataClient();
 
     try {
         // 1. Get token and contractor info

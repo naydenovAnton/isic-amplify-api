@@ -3,6 +3,7 @@ import { getDataClient } from '../../shared/amplifyClient';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
     try {
+
         console.log('Fetching card details...');
 
         // --- 1️⃣ Validate input
@@ -12,7 +13,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         const contractorId = event.requestContext?.authorizer?.['x-contractor-id'];
         if (!contractorId) return unauthorized('Contractor ID not found in authorizer context');
 
-        const client = getDataClient();
+        const client = await getDataClient();
         console.log(`Card ${cardId} for contractor ${contractorId}`);
 
         // --- 2️⃣ Verify contractor ↔ card assignment

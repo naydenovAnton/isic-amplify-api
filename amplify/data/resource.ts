@@ -1,4 +1,7 @@
+// amplify/data/resource.ts
+
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
+import { readCards } from '../functions/cards/read/resources'; // 👈 1. CORRECT IMPORT of the function resource
 
 const schema = a.schema({
 
@@ -14,7 +17,7 @@ const schema = a.schema({
 
         // ✅ backref required by CardFieldOptionLink.field (belongsTo 'fieldId')
         optionPrices: a.hasMany('CardFieldOptionLink', 'fieldId'),
-    }).authorization(allow => [allow.publicApiKey()]),
+    }).authorization(allow => [allow.publicApiKey(), ]),
 
     // 2) Select options (no base price here)
     FieldOption: a.model({
@@ -143,7 +146,10 @@ const schema = a.schema({
     })
         .secondaryIndexes(index => [index('contractorId')])
         .authorization(allow => [allow.publicApiKey()]),
-});
+})
+    .authorization((allow) => [
+        allow.resource(readCards).to(['query']), // 👈 Correct method is .to()
+    ]);
 
 export type Schema = ClientSchema<typeof schema>;
 

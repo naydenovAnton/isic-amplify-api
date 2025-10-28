@@ -1,6 +1,6 @@
 import type { APIGatewayProxyHandler } from 'aws-lambda';
 import { getDataClient } from '../../shared/amplifyClient';
-import { logAPIRequest } from '../../shared/logger';
+// import { logAPIRequest } from '../../shared/logger';
 
 export const handler: APIGatewayProxyHandler = async (event) => {
     try {
@@ -14,7 +14,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         }
         const token = authHeader.replace('Bearer ', '').trim();
 
-        const client = getDataClient();
+        const client = await getDataClient();
 
         // 2) Validate token
         const { data: tokens, errors: tokenErrors } = await client.models.ContractorToken.list({
@@ -39,7 +39,7 @@ export const handler: APIGatewayProxyHandler = async (event) => {
         console.log(`Contractor: ${contractor.name}`);
 
         // log (async)
-        logAPIRequest(event).catch(console.error);
+        // logAPIRequest(event).catch(console.error);
 
         // 4) Contractor ↔ Card relations
         const { data: contractorCards, errors: cardErrors } = await client.models.ContractorCard.list({

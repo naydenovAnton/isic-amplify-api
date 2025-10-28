@@ -9,7 +9,6 @@ import { readCards } from './functions/cards/read/resources';
 import { getCard } from './functions/cards/get/resources';
 import {tokenAuthorizer} from "./functions/authorizers/resource";
 
-
 // Define backend with GraphQL data (for admin)
 const backend = defineBackend({
     data,

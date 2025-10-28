@@ -23,8 +23,8 @@
     "vue-router": "^4.6.3"
   },
   "devDependencies": {
-    "@aws-amplify/backend": "^1.16.1",
-    "@aws-amplify/backend-cli": "^1.2.9",
+    "@aws-amplify/backend": "^1.17.0",
+    "@aws-amplify/backend-cli": "^1.8.0",
     "@tsconfig/node20": "^20.1.4",
     "@types/aws-lambda": "^8.10.156",
     "@types/aws-sdk": "^0.0.42",
