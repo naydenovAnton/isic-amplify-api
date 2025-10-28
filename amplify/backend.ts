@@ -4,7 +4,6 @@ import { LambdaIntegration, RestApi, Cors } from 'aws-cdk-lib/aws-apigateway';
 import { data } from './data/resource';
 import { auth } from './auth/resource';
 
-
 import { readCards } from './functions/cards/read/resources';
 import { getCard } from './functions/cards/get/resources';
 import {tokenAuthorizer} from "./functions/authorizers/resource";
