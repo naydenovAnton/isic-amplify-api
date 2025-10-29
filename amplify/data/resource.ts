@@ -1,7 +1,7 @@
 // amplify/data/resource.ts
 
 import { type ClientSchema, a, defineData } from "@aws-amplify/backend";
-import { readCards } from '../functions/cards/read/resources'; // 👈 1. CORRECT IMPORT of the function resource
+// import { readCards } from '../functions/cards/read/resources'; // 👈 1. CORRECT IMPORT of the function resource
 
 const schema = a.schema({
 
@@ -147,9 +147,9 @@ const schema = a.schema({
         .secondaryIndexes(index => [index('contractorId')])
         .authorization(allow => [allow.publicApiKey()]),
 })
-    .authorization((allow) => [
-        allow.resource(readCards).to(['query']), // 👈 Correct method is .to()
-    ]);
+    // .authorization((allow) => [
+    //     allow.resource(readCards).to(['query']), // 👈 Correct method is .to()
+    // ]);
 
 export type Schema = ClientSchema<typeof schema>;
 
