@@ -13,24 +13,24 @@ const routes = [
         component: () => import('../screens/Dashboard.vue'),
         meta: { requiresAuth: true }
     },
-    // {
-    //     path: '/partners',
-    //     name: 'Partners',
-    //     component: () => import('../screens/Partners.vue'),
-    //     meta: { requiresAuth: true }
-    // },
-    // {
-    //     path: '/cards',
-    //     name: 'Cards',
-    //     component: () => import('../screens/Cards.vue'),
-    //     meta: { requiresAuth: true }
-    // },
-    // {
-    //     path: '/fields',
-    //     name: 'Fields',
-    //     component: () => import('../screens/Fields.vue'),
-    //     meta: { requiresAuth: true }
-    // },
+    {
+        path: '/partners',
+        name: 'Partners',
+        component: () => import('../screens/Partners.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/cards',
+        name: 'Cards',
+        component: () => import('../screens/Cards.vue'),
+        meta: { requiresAuth: true }
+    },
+    {
+        path: '/fields',
+        name: 'Fields',
+        component: () => import('../screens/Fields.vue'),
+        meta: { requiresAuth: true }
+    },
     {
         path: '/',
         redirect: '/dashboard'
