@@ -982,6 +982,7 @@ const formatDate = (date: string | Date | null) => {
 }
 
 const formatDistanceToNow = (date: string | Date | null) => {
+
   if (!date) return 'never'
   const now = new Date()
   const past = new Date(date)
